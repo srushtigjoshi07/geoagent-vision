@@ -8,8 +8,8 @@ interface RoadSeg {
   width: number;
 }
 
-const ROAD_WIDTH = 4.0;
-const SIDEWALK_WIDTH = 1.2;
+const ROAD_WIDTH = 5.0;
+const SIDEWALK_WIDTH = 1.4;
 
 function getRoadSegments(): RoadSeg[] {
   return [
@@ -29,12 +29,12 @@ function getRoadSegments(): RoadSeg[] {
 
     // Diagonal access roads
     { x1: -40, z1: 0, x2: -20, z2: 0, width: ROAD_WIDTH },
-    { x1: -30, z1: -10, x2: -20, z2: -18, width: 3 },
-    { x1: -30, z1: 10, x2: -20, z2: 18, width: 3 },
-    { x1: 32, z1: -10, x2: 20, z2: -18, width: 3 },
-    { x1: 32, z1: 10, x2: 20, z2: 18, width: 3 },
-    { x1: 32, z1: -10, x2: 40, z2: 0, width: 3 },
-    { x1: 32, z1: 10, x2: 40, z2: 0, width: 3 },
+    { x1: -30, z1: -10, x2: -20, z2: -18, width: 3.8 },
+    { x1: -30, z1: 10, x2: -20, z2: 18, width: 3.8 },
+    { x1: 32, z1: -10, x2: 20, z2: -18, width: 3.8 },
+    { x1: 32, z1: 10, x2: 20, z2: 18, width: 3.8 },
+    { x1: 32, z1: -10, x2: 40, z2: 0, width: 3.8 },
+    { x1: 32, z1: 10, x2: 40, z2: 0, width: 3.8 },
   ];
 }
 

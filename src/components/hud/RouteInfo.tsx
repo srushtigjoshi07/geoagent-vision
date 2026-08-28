@@ -30,9 +30,9 @@ export function RouteInfoPanel() {
           {altRoutes.map((route) => {
             const isActive = route.id === activeRouteId;
             const borderColor = route.isRecommended
-              ? "border-green-600/70 bg-green-950/30"
-              : "border-stone-700/40 bg-stone-900/30";
-            const textColor = route.isRecommended ? "text-green-300" : "text-stone-400";
+              ? "border-stone-400/70 bg-stone-800/50"
+              : "border-stone-700/30 bg-stone-900/20";
+            const textColor = route.isRecommended ? "text-stone-200" : "text-stone-400";
 
             return (
               <div
@@ -44,10 +44,10 @@ export function RouteInfoPanel() {
                 </span>
                 <span
                   className={`font-mono text-[9px] font-bold ${
-                    route.isRecommended ? "text-green-400" : "text-stone-500"
+                    route.isRecommended ? "text-stone-300" : "text-stone-500"
                   }`}
                 >
-                  {route.isRecommended ? "RECOMMENDED" : ""}
+                  {route.isRecommended ? "SELECTED" : ""}
                   {isActive ? " ✓" : ""}
                 </span>
               </div>

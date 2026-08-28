@@ -183,7 +183,6 @@ export function calculateAltRoutes(graph: CityGraph): AltRoute[] {
         e.from === "JB" && e.to === "JA" ||
         e.from === "JB" && e.to === "JC" ||
         e.from === "JC" && e.to === "JB" ||
-        // Block south corridor connectors to force north route
         e.from === "BASE" && e.to === "S0" ||
         e.from === "S0" && e.to === "BASE" ||
         e.from === "JA" && e.to === "S1" ||
@@ -216,7 +215,6 @@ export function calculateAltRoutes(graph: CityGraph): AltRoute[] {
         e.from === "JB" && e.to === "JA" ||
         e.from === "JB" && e.to === "JC" ||
         e.from === "JC" && e.to === "JB" ||
-        // Block north corridor connectors to force south route
         e.from === "BASE" && e.to === "N0" ||
         e.from === "N0" && e.to === "BASE" ||
         e.from === "JA" && e.to === "N1" ||
@@ -238,7 +236,7 @@ export function calculateAltRoutes(graph: CityGraph): AltRoute[] {
     });
   }
 
-  // Route C: Go south but with congestion on S1→S2 (slower)
+  // Route C: Go south with congestion on BASE→S0 (slower due to traffic)
   const routeCGraph: CityGraph = {
     nodes: graph.nodes,
     edges: graph.edges.map(e => ({
@@ -266,13 +264,39 @@ export function calculateAltRoutes(graph: CityGraph): AltRoute[] {
     });
   }
 
-  // Mark fastest as recommended
+  // Mark fastest as recommended — shortest time wins
   if (routes.length > 0) {
     const fastest = routes.reduce((a, b) => (a.cost < b.cost ? a : b));
     fastest.isRecommended = true;
   }
 
   return routes;
+}
+
+// ── Traffic-aware re-evaluation ─────────────────────────────────────
+// Given the current graph state (congestion/blocked), recalculate the
+// best route from the ambulance's current node to the hospital.
+export function findBestRouteFrom(
+  graph: CityGraph,
+  fromId: string,
+): PathResult | null {
+  return dijkstra(graph, fromId, "HOSPITAL");
+}
+
+// Find which graph node the ambulance is closest to
+export function findNearestNode(graph: CityGraph, pos: Vec2): string {
+  let best = "BASE";
+  let bestDist = Infinity;
+  for (const [id, node] of graph.nodes) {
+    const dx = node.position.x - pos.x;
+    const dz = node.position.z - pos.z;
+    const d = dx * dx + dz * dz;
+    if (d < bestDist) {
+      bestDist = d;
+      best = id;
+    }
+  }
+  return best;
 }
 
 // ── Utility: interpolate position along a path ────────────────────────

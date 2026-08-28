@@ -3,6 +3,8 @@ import {
   buildGraph,
   dijkstra,
   getPositionOnPath,
+  findNearestNode,
+  findBestRouteFrom,
   type CityGraph,
   type Vec2,
   PRIMARY_ROUTE,
@@ -90,6 +92,12 @@ interface SimulationState {
   timeline: TimelineStep[];
   graph: CityGraph;
 
+  // Traffic corridor: sampled world-space positions along the ambulance's
+  // active route. Civilian cars check proximity to these to yield.
+  trafficCorridor: Vec2[];
+  // Whether the corridor is "active" (ambulance is moving)
+  corridorActive: boolean;
+
   startDemo: () => void;
   pause: () => void;
   resume: () => void;
@@ -164,6 +172,30 @@ function congestGraph(): CityGraph {
   return graph;
 }
 
+/**
+ * Sample evenly-spaced world positions along a route path for the
+ * traffic-corridor proximity check. ~2-unit spacing gives good coverage.
+ */
+function sampleRoutePositions(route: string[], graph: CityGraph): Vec2[] {
+  const positions: Vec2[] = [];
+  for (let i = 0; i < route.length - 1; i++) {
+    const a = graph.nodes.get(route[i])!.position;
+    const b = graph.nodes.get(route[i + 1])!.position;
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
+    const len = Math.sqrt(dx * dx + dz * dz);
+    const steps = Math.max(1, Math.ceil(len / 2.5));
+    for (let s = 0; s < steps; s++) {
+      const t = s / steps;
+      positions.push({ x: a.x + dx * t, z: a.z + dz * t });
+    }
+  }
+  // Add the final endpoint
+  const lastNode = graph.nodes.get(route[route.length - 1]);
+  if (lastNode) positions.push({ ...lastNode.position });
+  return positions;
+}
+
 export const useSimulationStore = create<SimulationState>((set, get) => ({
   phase: "idle",
   isPaused: false,
@@ -186,8 +218,12 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   timeline: createTimeline(),
   graph: buildGraph(),
 
+  trafficCorridor: [],
+  corridorActive: false,
+
   startDemo: () => {
     const graph = buildGraph();
+    const corridor = sampleRoutePositions(PRIMARY_ROUTE, graph);
     set({
       phase: "departing",
       isPaused: false,
@@ -205,6 +241,8 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       edgeSteps: createEdgeSteps(),
       timeline: createTimeline(),
       graph,
+      trafficCorridor: corridor,
+      corridorActive: true,
     });
     setTimeout(() => {
       const s = get();
@@ -238,6 +276,8 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       edgeSteps: createEdgeSteps(),
       timeline: createTimeline(),
       graph: buildGraph(),
+      trafficCorridor: [],
+      corridorActive: false,
     }),
 
   triggerAccident: () => {
@@ -325,11 +365,47 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         }
         case "rerouting": {
           const graph = congestGraph();
+          // Intelligent routing: find the best route from the ambulance's
+          // current position using traffic-aware Dijkstra
+          const amb = updates.ambulance ?? state.ambulance;
+          const nearestNode = findNearestNode(graph, amb.position);
+          const bestFromCurrent = findBestRouteFrom(graph, nearestNode);
+
           const alts = calculateAltRoutes(graph);
           const routeDisplays: RouteDisplay[] = alts.map((r) => ({
             ...r,
             visible: true,
           }));
+
+          // If the best route from current position differs from all alts,
+          // add it as the primary recommended option
+          if (bestFromCurrent && bestFromCurrent.path.length >= 2) {
+            const bestCost = bestFromCurrent.totalCost;
+            const bestPathStr = bestFromCurrent.path.join(",");
+            // Check if any existing alt already covers this path
+            const alreadyCovered = routeDisplays.some(
+              (r) => r.path.join(",") === bestPathStr
+            );
+            if (!alreadyCovered) {
+              // Insert as the first route — it's the real best option
+              routeDisplays.unshift({
+                id: "ROUTE_OPTIMAL",
+                label: "Optimal",
+                path: bestFromCurrent.path,
+                cost: bestCost,
+                isRecommended: false, // will be set below
+                visible: true,
+              });
+            }
+          }
+
+          // Re-mark recommended — always pick the shortest-time route
+          for (const r of routeDisplays) r.isRecommended = false;
+          if (routeDisplays.length > 0) {
+            const fastest = routeDisplays.reduce((a, b) => (a.cost < b.cost ? a : b));
+            fastest.isRecommended = true;
+          }
+
           updates.graph = graph;
           updates.altRoutes = routeDisplays;
           updates.routeAgent = "done";
@@ -345,12 +421,23 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
           const rec = alts.find((r) => r.isRecommended);
           if (rec) {
             updates.activeRouteId = rec.id;
+            const newRoute = [...rec.path];
+            // Prepend the ambulance's nearest node if it's not already first
+            const amb2 = updates.ambulance ?? state.ambulance;
+            const graph2 = updates.graph ?? state.graph;
+            const nearest = findNearestNode(graph2, amb2.position);
+            if (newRoute[0] !== nearest) {
+              newRoute.unshift(nearest);
+            }
             updates.ambulance = {
               ...state.ambulance,
-              currentRoute: [...rec.path],
+              currentRoute: newRoute,
               progress: 0,
               speed: 50,
             };
+            // Rebuild traffic corridor for the new route
+            updates.trafficCorridor = sampleRoutePositions(newRoute, graph2);
+            updates.corridorActive = true;
           }
           updates.decisionAgent = "done";
           updates.cameraState = { state: "NORMAL ROAD" };
@@ -365,7 +452,6 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
           const ti = tl.findIndex((t) => t.id === "hospital");
           if (ti >= 0) tl[ti].done = true;
           updates.timeline = tl;
-          // Let the ambulance keep moving at slow speed to reach the hospital
           updates.ambulance = {
             ...(updates.ambulance ?? state.ambulance),
             speed: 25,
@@ -378,6 +464,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
             speed: 0,
             flashingLights: false,
           };
+          updates.corridorActive = false;
           break;
         }
       }

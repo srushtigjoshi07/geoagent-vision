@@ -1,5 +1,4 @@
-import { useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useMemo } from "react";
 import * as THREE from "three";
 import { useSimulationStore } from "@/lib/simulationStore";
 import { CITY_NODES } from "@/lib/cityGraph";
@@ -11,15 +10,18 @@ function GlowingRouteLine({
   height,
   width,
   animated,
+  opacity,
 }: {
   nodeIds: string[];
   color: string;
   height?: number;
   width?: number;
   animated?: boolean;
+  opacity?: number;
 }) {
   const h = height ?? 0.5;
   const w = width ?? 0.3;
+  const op = opacity ?? 0.85;
 
   const segments = useMemo(() => {
     const segs: { pos: [number, number, number]; rot: number; len: number }[] = [];
@@ -50,9 +52,9 @@ function GlowingRouteLine({
           <meshStandardMaterial
             color={color}
             emissive={color}
-            emissiveIntensity={animated ? 1.5 : 0.8}
+            emissiveIntensity={animated ? 1.2 : 0.5}
             transparent
-            opacity={0.85}
+            opacity={op}
             side={THREE.DoubleSide}
           />
         </mesh>
@@ -63,11 +65,11 @@ function GlowingRouteLine({
         if (!node) return null;
         return (
           <mesh key={id} position={[node.position.x, h + 0.05, node.position.z]}>
-            <sphereGeometry args={[0.2, 8, 8]} />
+            <sphereGeometry args={[0.18, 8, 8]} />
             <meshStandardMaterial
               color={color}
               emissive={color}
-              emissiveIntensity={1}
+              emissiveIntensity={0.8}
             />
           </mesh>
         );
@@ -79,7 +81,9 @@ function GlowingRouteLine({
 export function CityRouteLines() {
   const phase = useSimulationStore((s) => s.phase);
   const altRoutes = useSimulationStore((s) => s.altRoutes);
-  const activeRouteId = useSimulationStore((s) => s.activeRouteId);  const showPrimary = phase !== "idle" && phase !== "completed";
+  const activeRouteId = useSimulationStore((s) => s.activeRouteId);
+
+  const showPrimary = phase !== "idle" && phase !== "completed";
   const showCongested =
     phase === "accident" || phase === "traffic" || phase === "detecting" || phase === "analyzing";
   const showAlts =
@@ -87,25 +91,27 @@ export function CityRouteLines() {
 
   return (
     <group>
-      {/* Primary route (green before accident) */}
+      {/* Primary route — light grey before accident */}
       {showPrimary && !showCongested && (
         <GlowingRouteLine
           nodeIds={["BASE", "JA", "JB", "JC", "HOSPITAL"]}
-          color="#22cc66"
-          height={0.55}
-          width={0.4}
+          color="#888888"
+          height={0.5}
+          width={0.35}
           animated
+          opacity={0.7}
         />
       )}
 
-      {/* Congested primary route (red) */}
+      {/* Congested primary route — muted red tint on grey */}
       {showCongested && (
         <GlowingRouteLine
           nodeIds={["BASE", "JA", "JB", "JC", "HOSPITAL"]}
-          color="#aa3333"
-          height={0.55}
-          width={0.4}
+          color="#994444"
+          height={0.5}
+          width={0.35}
           animated
+          opacity={0.55}
         />
       )}
 
@@ -113,16 +119,17 @@ export function CityRouteLines() {
       {showAlts &&
         altRoutes.map((route) => {
           const isActive = route.id === activeRouteId;
-          // Recommended route is green; others are grey
-          const color = route.isRecommended ? "#00ee66" : "#556677";
+          // All alt routes are light grey; the active/selected one is darker and thicker
+          const color = isActive ? "#b0b0b0" : "#6a6a6a";
           return (
             <GlowingRouteLine
               key={route.id}
               nodeIds={route.path}
               color={color}
-              height={isActive ? 0.7 : 0.45}
-              width={isActive ? 0.5 : 0.25}
+              height={isActive ? 0.6 : 0.42}
+              width={isActive ? 0.55 : 0.28}
               animated={isActive}
+              opacity={isActive ? 0.9 : 0.5}
             />
           );
         })}
