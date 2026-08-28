@@ -28,7 +28,7 @@ export function CameraPanel() {
         <div className="flex items-center gap-2 border-b border-stone-800 px-3 py-1.5">
           <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
           <span className="font-mono text-[10px] font-bold tracking-wider text-stone-300 uppercase">
-            Vehicle Camera
+            On-Board Camera
           </span>
         </div>
 

@@ -75,7 +75,7 @@ export function AgentPanel() {
     <div className="pointer-events-none absolute left-4 top-4 z-20">
       <div className="rounded-lg border border-stone-700/60 bg-stone-950/80 p-3 backdrop-blur-sm">
         <div className="mb-2 text-center font-serif text-xs font-bold tracking-[0.2em] text-amber-300/80 uppercase">
-          GeoAgent Pipeline
+          Agent Pipeline
         </div>
         <div className="flex flex-col items-center gap-0">
           <AgentCard

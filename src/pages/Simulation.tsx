@@ -22,10 +22,10 @@ export default function Simulation() {
       <div className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2">
         <div className="rounded border border-stone-700/50 bg-stone-950/80 px-5 py-2 backdrop-blur-sm">
           <h1 className="font-serif text-sm font-bold tracking-[0.15em] text-amber-200/90 uppercase">
-            GeoRescue — Emergency Vehicle Movement Simulation
+            GeoAgent Vision — Urban Scenario Simulation
           </h1>
           <p className="mt-0.5 font-mono text-[9px] tracking-wider text-stone-400">
-            IEEE Computer Society Bangalore Girl Geeks PS2 • GeoAgentic Framework
+            Multi-Agent Pipeline · Dijkstra Routing · Edge Vision Processing
           </p>
         </div>
       </div>
@@ -44,10 +44,10 @@ export default function Simulation() {
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
           <div className="text-center">
             <p className="font-serif text-lg font-bold tracking-wider text-amber-200/70 uppercase">
-              Click RUN DEMO to start the simulation
+              Press Run Demo to begin the scenario
             </p>
             <p className="mt-2 font-mono text-xs text-stone-400">
-              Orbit: drag • Zoom: scroll • Pan: right-drag
+              Orbit: drag · Zoom: scroll · Pan: right-drag
             </p>
           </div>
         </div>

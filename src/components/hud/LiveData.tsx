@@ -19,7 +19,7 @@ export function LiveDataPanel() {
     rerouted: "REROUTED",
     enroute_alt: "EN ROUTE",
     hospital: "ARRIVING",
-    completed: "MISSION COMPLETE",
+    completed: "COMPLETE",
   };
 
   const speed = phase === "detecting" || phase === "analyzing" || phase === "rerouting"
@@ -66,7 +66,7 @@ export function LiveDataPanel() {
         <div className="flex items-center gap-2 border-b border-stone-800 px-3 py-1.5">
           <div className="h-2 w-2 rounded-full bg-cyan-500" />
           <span className="font-mono text-[10px] font-bold tracking-wider text-stone-300 uppercase">
-            AMB-01
+            Unit AMB-01
           </span>
         </div>
 

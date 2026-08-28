@@ -1,4 +1,4 @@
-// City road graph for GeoRescue simulation
+// City road graph for GeoAgent Vision simulation
 // Nodes are intersections; edges are road segments with travel cost
 
 export interface Vec2 {

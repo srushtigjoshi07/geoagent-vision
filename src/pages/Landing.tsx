@@ -55,7 +55,7 @@ export default function Landing() {
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-800/50 bg-amber-950/50 px-4 py-1">
               <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
               <span className="font-mono text-[10px] font-bold tracking-wider text-amber-400/90 uppercase">
-                IEEE Computer Society Bangalore Girl Geeks • PS2
+                Internal Tooling
               </span>
             </div>
           </motion.div>
@@ -66,7 +66,7 @@ export default function Landing() {
             transition={{ duration: 0.8, delay: 0.1 }}
             className="font-serif text-5xl font-bold leading-tight tracking-tight text-amber-100/95 sm:text-6xl"
           >
-            GeoRescue
+            GeoAgent Vision
           </motion.h1>
 
           <motion.p
@@ -75,9 +75,9 @@ export default function Landing() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="mx-auto mt-4 max-w-2xl font-serif text-lg text-stone-400"
           >
-            GeoAgentic Framework for Emergency Vehicle Movement — real-time
-            accident detection, multi-agent analysis, and intelligent rerouting
-            for ambulances in congested urban environments.
+            Multi-agent geospatial reasoning for emergency vehicle dispatch.
+            Browse the agent catalog, run scenario simulations, and inspect
+            pipeline telemetry in real time.
           </motion.p>
 
           <motion.div
@@ -87,23 +87,23 @@ export default function Landing() {
             className="mt-8 flex items-center justify-center gap-4"
           >
             <button
-              onClick={() => navigate("/simulation")}
+              onClick={() => navigate("/catalog")}
               className="rounded-lg border border-amber-600/60 bg-amber-900/50 px-6 py-2.5 font-serif text-sm font-bold tracking-wider text-amber-200 uppercase transition-all hover:bg-amber-800/60 hover:border-amber-500"
             >
-              Launch Simulation
+              Open Catalog
             </button>
             <a
-              href="#features"
+              href="#capabilities"
               className="rounded-lg border border-stone-700/60 bg-stone-900/40 px-6 py-2.5 font-serif text-sm font-bold tracking-wider text-stone-300 uppercase transition-all hover:bg-stone-800/50"
             >
-              Learn More
+              Capabilities
             </a>
           </motion.div>
         </div>
       </div>
 
-      {/* Features */}
-      <div id="features" className="mx-auto max-w-5xl px-6 py-16">
+      {/* Capabilities */}
+      <div id="capabilities" className="mx-auto max-w-5xl px-6 py-16">
         <motion.div
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
@@ -111,7 +111,7 @@ export default function Landing() {
           className="mb-10 text-center"
         >
           <h2 className="font-serif text-2xl font-bold text-amber-100/90">
-            How It Works
+            System Capabilities
           </h2>
           <p className="mt-2 font-mono text-xs text-stone-500">
             See → Detect → Analyze → Predict → Decide → Reroute
@@ -121,38 +121,38 @@ export default function Landing() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <FeatureCard
             icon={<Eye className="h-5 w-5" />}
-            title="Camera Detection"
-            desc="Vehicle-mounted cameras continuously scan the road, detecting accidents and obstacles in real time."
+            title="Vision Detection"
+            desc="On-board camera streams feed into a lightweight detection model for real-time incident classification."
             delay={0.1}
           />
           <FeatureCard
             icon={<Radio className="h-5 w-5" />}
-            title="Edge Processing"
-            desc="On-board Raspberry Pi performs vision processing at the edge, enabling low-latency incident detection."
+            title="Edge Inference"
+            desc="Raspberry Pi hardware runs the vision pipeline locally, minimizing round-trip latency to the cloud."
             delay={0.15}
           />
           <FeatureCard
             icon={<Shield className="h-5 w-5" />}
-            title="GeoAgent Analysis"
-            desc="Multi-agent pipeline: Trajectory, Incident, Route, and Decision agents collaborate to assess the situation."
+            title="Multi-Agent Analysis"
+            desc="Trajectory, Incident, Route, and Decision agents coordinate through a shared reasoning pipeline."
             delay={0.2}
           />
           <FeatureCard
             icon={<Route className="h-5 w-5" />}
-            title="Dynamic Rerouting"
-            desc="Real-time pathfinding recalculates optimal routes when congestion or blockages are detected."
+            title="Adaptive Routing"
+            desc="Dijkstra-based pathfinding recalculates optimal routes dynamically when network conditions change."
             delay={0.25}
           />
           <FeatureCard
             icon={<Zap className="h-5 w-5" />}
-            title="Time Savings"
-            desc="Intelligent rerouting saves critical minutes, improving emergency response outcomes."
+            title="Reduced Response Time"
+            desc="Automated rerouting eliminates manual dispatch overhead, cutting response times by measurable margins."
             delay={0.3}
           />
           <FeatureCard
             icon={<MapPin className="h-5 w-5" />}
-            title="3D Digital Twin"
-            desc="Full 3D city simulation with real-time visualization of vehicles, traffic, and agent decisions."
+            title="3D Scenario Replay"
+            desc="Full spatial simulation with isometric rendering, telemetry overlays, and step-through playback."
             delay={0.35}
           />
         </div>
@@ -161,7 +161,7 @@ export default function Landing() {
       {/* Footer */}
       <div className="border-t border-stone-800/60 py-8 text-center">
         <p className="font-mono text-[10px] text-stone-600">
-          GeoRescue Prototype v1.0 — Built for IEEE CS Bangalore Girl Geeks Hackathon
+          GeoAgent Vision · Internal Release
         </p>
       </div>
     </div>
