@@ -226,7 +226,7 @@ export function findAlternativeRoutes(
   const first = dijkstra(graph, startId, endId);
   if (!first) return routes;
   routes.push(first);
-  usedEdgeSets.add(routeEdgeSet(first.path));
+  usedEdgeSets.push(routeEdgeSet(first.path));
 
   // Subsequent routes: block edges used by previous routes
   for (let attempt = 1; attempt < maxRoutes * 3 && routes.length < maxRoutes; attempt++) {
@@ -253,7 +253,7 @@ export function findAlternativeRoutes(
     if (isTooSimilar(newSet, usedEdgeSets)) continue;
 
     routes.push(result);
-    usedEdgeSets.add(newSet);
+    usedEdgeSets.push(newSet);
   }
 
   // Sort by cost and mark best
