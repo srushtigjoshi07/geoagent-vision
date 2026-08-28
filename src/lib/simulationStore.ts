@@ -114,8 +114,8 @@ interface SimulationState {
 }
 
 const INITIAL_AMBULANCE: AmbulanceState = {
-  position: { x: -40, z: 0 },
-  angle: 0,
+  position: { x: 32, z: 0 },
+  angle: Math.PI, // facing west (toward JC/JA)
   speed: 60,
   progress: 0,
   currentRoute: [...PRIMARY_ROUTE],

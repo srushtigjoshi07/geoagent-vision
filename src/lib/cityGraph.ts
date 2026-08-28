@@ -279,7 +279,7 @@ function isTooSimilar(candidate: Set<string>, existing: Set<string>[]): boolean 
 
 // ── Primary route ─────────────────────────────────────────────────────
 
-export const PRIMARY_ROUTE = ["BASE", "JA", "JB", "JC", "HOSPITAL"];
+export const PRIMARY_ROUTE = ["HOSPITAL", "JC", "JB", "JA", "BASE", "JA", "JB", "JC", "HOSPITAL"];
 
 // ── Find nearest graph node to a world position ───────────────────────
 

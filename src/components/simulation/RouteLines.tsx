@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import * as THREE from "three";
 import { useSimulationStore } from "@/lib/simulationStore";
-import { CITY_NODES, edgeKey } from "@/lib/cityGraph";
+import { CITY_NODES, edgeKey, PRIMARY_ROUTE } from "@/lib/cityGraph";
 
 // ── Route line segment ────────────────────────────────────────────────
 function RouteSegment({
@@ -201,7 +201,7 @@ export function CityRouteLines() {
       {/* Primary route — light grey before accident */}
       {showPrimary && !showAlts && (
         <GlowingRouteLine
-          nodeIds={["BASE", "JA", "JB", "JC", "HOSPITAL"]}
+          nodeIds={PRIMARY_ROUTE}
           color="#888888"
           height={0.5}
           width={0.35}
