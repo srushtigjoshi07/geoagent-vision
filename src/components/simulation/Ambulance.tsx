@@ -59,7 +59,7 @@ export function Ambulance() {
         <boxGeometry args={[1.3, 1.1, 1.6]} />
         <meshStandardMaterial color="#e8e0d0" roughness={0.6} metalness={0.1} />
       </mesh>
-      {/* Red cross (side) */}
+      {/* Red cross (right side) */}
       <mesh position={[0.66, 0.6, 0.4]}>
         <boxGeometry args={[0.02, 0.5, 0.15]} />
         <meshStandardMaterial color="#cc2222" roughness={0.5} />
@@ -68,7 +68,7 @@ export function Ambulance() {
         <boxGeometry args={[0.02, 0.15, 0.5]} />
         <meshStandardMaterial color="#cc2222" roughness={0.5} />
       </mesh>
-      {/* Red cross (other side) */}
+      {/* Red cross (left side) */}
       <mesh position={[-0.66, 0.6, 0.4]}>
         <boxGeometry args={[0.02, 0.5, 0.15]} />
         <meshStandardMaterial color="#cc2222" roughness={0.5} />
@@ -76,6 +76,34 @@ export function Ambulance() {
       <mesh position={[-0.66, 0.6, 0.4]}>
         <boxGeometry args={[0.02, 0.15, 0.5]} />
         <meshStandardMaterial color="#cc2222" roughness={0.5} />
+      </mesh>
+      {/* Red cross (roof — visible from isometric camera) */}
+      <mesh position={[0, 1.16, 0.4]}
+        rotation={[0, 0, 0]}>
+        <boxGeometry args={[0.08, 0.02, 0.55]} />
+        <meshStandardMaterial color="#cc2222" roughness={0.4} emissive="#cc2222" emissiveIntensity={0.3} />
+      </mesh>
+      <mesh position={[0, 1.16, 0.4]}>
+        <boxGeometry args={[0.55, 0.02, 0.08]} />
+        <meshStandardMaterial color="#cc2222" roughness={0.4} emissive="#cc2222" emissiveIntensity={0.3} />
+      </mesh>
+      {/* Red cross (front) */}
+      <mesh position={[0, 0.6, -1.51]}>
+        <boxGeometry args={[0.06, 0.35, 0.02]} />
+        <meshStandardMaterial color="#cc2222" roughness={0.4} />
+      </mesh>
+      <mesh position={[0, 0.6, -1.51]}>
+        <boxGeometry args={[0.35, 0.06, 0.02]} />
+        <meshStandardMaterial color="#cc2222" roughness={0.4} />
+      </mesh>
+      {/* Red cross (rear) */}
+      <mesh position={[0, 0.6, 1.21]}>
+        <boxGeometry args={[0.06, 0.35, 0.02]} />
+        <meshStandardMaterial color="#cc2222" roughness={0.4} />
+      </mesh>
+      <mesh position={[0, 0.6, 1.21]}>
+        <boxGeometry args={[0.35, 0.06, 0.02]} />
+        <meshStandardMaterial color="#cc2222" roughness={0.4} />
       </mesh>
       {/* Red stripe */}
       <mesh position={[0, 0.4, 0]}>
