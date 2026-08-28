@@ -79,20 +79,11 @@ function GlowingRouteLine({
 export function CityRouteLines() {
   const phase = useSimulationStore((s) => s.phase);
   const altRoutes = useSimulationStore((s) => s.altRoutes);
-  const activeRouteId = useSimulationStore((s) => s.activeRouteId);
-
-  const showPrimary = phase !== "idle" && phase !== "completed";
+  const activeRouteId = useSimulationStore((s) => s.activeRouteId);  const showPrimary = phase !== "idle" && phase !== "completed";
   const showCongested =
-    phase === "accident" ||
-    phase === "traffic" ||
-    phase === "detecting" ||
-    phase === "analyzing";
+    phase === "accident" || phase === "traffic" || phase === "detecting" || phase === "analyzing";
   const showAlts =
-    phase === "rerouting" ||
-    phase === "rerouted" ||
-    phase === "enroute_alt" ||
-    phase === "hospital" ||
-    phase === "completed";
+    phase === "rerouting" || phase === "rerouted" || phase === "enroute_alt" || phase === "hospital" || phase === "completed";
 
   return (
     <group>
@@ -100,7 +91,7 @@ export function CityRouteLines() {
       {showPrimary && !showCongested && (
         <GlowingRouteLine
           nodeIds={["BASE", "JA", "JB", "JC", "HOSPITAL"]}
-          color="#6a9a5a"
+          color="#22cc66"
           height={0.55}
           width={0.4}
           animated
@@ -122,7 +113,8 @@ export function CityRouteLines() {
       {showAlts &&
         altRoutes.map((route) => {
           const isActive = route.id === activeRouteId;
-          const color = route.isRecommended ? "#ccaa22" : "#667788";
+          // Recommended route is green; others are grey
+          const color = route.isRecommended ? "#00ee66" : "#556677";
           return (
             <GlowingRouteLine
               key={route.id}

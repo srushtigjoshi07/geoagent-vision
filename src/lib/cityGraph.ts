@@ -172,55 +172,96 @@ export interface AltRoute {
 export function calculateAltRoutes(graph: CityGraph): AltRoute[] {
   const routes: AltRoute[] = [];
 
-  // Try 3 different alternative routes by excluding edges near JB
-  // Route A: Go north
-  const northEdges = graph.edges.map(e => ({
-    ...e,
-    isBlocked: e.isBlocked || (e.from === "JA" && e.to === "JB") || (e.from === "JB" && e.to === "JC"),
-  }));
-  const northGraph: CityGraph = { nodes: graph.nodes, edges: northEdges };
-  const northPath = dijkstra(northGraph, "BASE", "HOSPITAL");
-  if (northPath) {
+  // Route A: Go north — block all south connectors so the only path is via north nodes
+  const routeAGraph: CityGraph = {
+    nodes: graph.nodes,
+    edges: graph.edges.map(e => ({
+      ...e,
+      isBlocked:
+        e.isBlocked ||
+        e.from === "JA" && e.to === "JB" ||
+        e.from === "JB" && e.to === "JA" ||
+        e.from === "JB" && e.to === "JC" ||
+        e.from === "JC" && e.to === "JB" ||
+        // Block south corridor connectors to force north route
+        e.from === "BASE" && e.to === "S0" ||
+        e.from === "S0" && e.to === "BASE" ||
+        e.from === "JA" && e.to === "S1" ||
+        e.from === "S1" && e.to === "JA" ||
+        e.from === "JB" && e.to === "S2" ||
+        e.from === "S2" && e.to === "JB" ||
+        e.from === "JC" && e.to === "S3" ||
+        e.from === "S3" && e.to === "JC",
+    })),
+  };
+  const routeAPath = dijkstra(routeAGraph, "BASE", "HOSPITAL");
+  if (routeAPath) {
     routes.push({
       id: "ROUTE_A",
       label: "Route A",
-      path: northPath.path,
-      cost: northPath.totalCost,
+      path: routeAPath.path,
+      cost: routeAPath.totalCost,
       isRecommended: false,
     });
   }
 
-  // Route B: Go south
-  const southEdges = graph.edges.map(e => ({
-    ...e,
-    isBlocked: e.isBlocked || (e.from === "JA" && e.to === "JB") || (e.from === "JB" && e.to === "JC"),
-  }));
-  const southGraph: CityGraph = { nodes: graph.nodes, edges: southEdges };
-  const southPath = dijkstra(southGraph, "BASE", "HOSPITAL");
-  if (southPath) {
+  // Route B: Go south — block all north connectors so the only path is via south nodes
+  const routeBGraph: CityGraph = {
+    nodes: graph.nodes,
+    edges: graph.edges.map(e => ({
+      ...e,
+      isBlocked:
+        e.isBlocked ||
+        e.from === "JA" && e.to === "JB" ||
+        e.from === "JB" && e.to === "JA" ||
+        e.from === "JB" && e.to === "JC" ||
+        e.from === "JC" && e.to === "JB" ||
+        // Block north corridor connectors to force south route
+        e.from === "BASE" && e.to === "N0" ||
+        e.from === "N0" && e.to === "BASE" ||
+        e.from === "JA" && e.to === "N1" ||
+        e.from === "N1" && e.to === "JA" ||
+        e.from === "JB" && e.to === "N2" ||
+        e.from === "N2" && e.to === "JB" ||
+        e.from === "JC" && e.to === "N3" ||
+        e.from === "N3" && e.to === "JC",
+    })),
+  };
+  const routeBPath = dijkstra(routeBGraph, "BASE", "HOSPITAL");
+  if (routeBPath) {
     routes.push({
       id: "ROUTE_B",
       label: "Route B",
-      path: southPath.path,
-      cost: southPath.totalCost,
+      path: routeBPath.path,
+      cost: routeBPath.totalCost,
       isRecommended: false,
     });
   }
 
-  // Route C: Mix
-  const mixEdges = graph.edges.map(e => ({
-    ...e,
-    isBlocked: e.isBlocked || (e.from === "JA" && e.to === "JB") || (e.from === "JB" && e.to === "JC"),
-    isCongested: e.isCongested || (e.from === "S1" && e.to === "S2"),
-  }));
-  const mixGraph: CityGraph = { nodes: graph.nodes, edges: mixEdges };
-  const mixPath = dijkstra(mixGraph, "BASE", "HOSPITAL");
-  if (mixPath) {
+  // Route C: Go south but with congestion on S1→S2 (slower)
+  const routeCGraph: CityGraph = {
+    nodes: graph.nodes,
+    edges: graph.edges.map(e => ({
+      ...e,
+      isBlocked:
+        e.isBlocked ||
+        e.from === "JA" && e.to === "JB" ||
+        e.from === "JB" && e.to === "JA" ||
+        e.from === "JB" && e.to === "JC" ||
+        e.from === "JC" && e.to === "JB",
+      isCongested:
+        e.isCongested ||
+        (e.from === "BASE" && e.to === "S0") ||
+        (e.from === "S0" && e.to === "BASE"),
+    })),
+  };
+  const routeCPath = dijkstra(routeCGraph, "BASE", "HOSPITAL");
+  if (routeCPath) {
     routes.push({
       id: "ROUTE_C",
       label: "Route C",
-      path: mixPath.path,
-      cost: mixPath.totalCost,
+      path: routeCPath.path,
+      cost: routeCPath.totalCost,
       isRecommended: false,
     });
   }

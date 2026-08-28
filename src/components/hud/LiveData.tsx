@@ -27,8 +27,10 @@ export function LiveDataPanel() {
     : phase === "enroute_alt"
       ? 50
       : phase === "hospital"
-        ? 20
-        : 60;
+        ? 25
+    : phase === "completed"
+      ? 0
+      : 60;
 
   const etaMap: Record<string, string> = {
     departing: "12 min",
@@ -51,7 +53,7 @@ export function LiveDataPanel() {
     phase === "completed"
       ? "text-green-400"
       : phase === "rerouting" || phase === "analyzing"
-        ? "text-amber-400"
+        ? "text-green-400"
         : "text-cyan-300";
 
   const timeSaved =

@@ -365,9 +365,10 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
           const ti = tl.findIndex((t) => t.id === "hospital");
           if (ti >= 0) tl[ti].done = true;
           updates.timeline = tl;
+          // Let the ambulance keep moving at slow speed to reach the hospital
           updates.ambulance = {
             ...(updates.ambulance ?? state.ambulance),
-            speed: 0,
+            speed: 25,
           };
           break;
         }
@@ -388,6 +389,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     const canMove =
       amb.speed > 0 &&
+      amb.progress < 1 &&
       (cp === "departing" ||
         cp === "enroute" ||
         cp === "rerouted" ||
@@ -416,6 +418,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       // Override speed for specific phases
       if (cp === "enroute_alt") amb.speed = 50;
       else if (cp === "rerouted") amb.speed = 55;
+      else if (cp === "hospital") amb.speed = 25;
       else amb.speed = 60;
     }
 
