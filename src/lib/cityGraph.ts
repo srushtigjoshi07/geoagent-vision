@@ -15,7 +15,7 @@ export interface CityNode {
 export interface CityEdge {
   from: string;
   to: string;
-  baseCost: number; // travel time in "minutes"
+  baseCost: number;
   isCongested: boolean;
   isBlocked: boolean;
 }
@@ -26,83 +26,90 @@ export interface CityGraph {
 }
 
 // ── City layout ───────────────────────────────────────────────────────
-// Isometric grid: X axis ≈ east-west, Z axis ≈ north-south
-// Base is west, Hospital is east
 
 export const CITY_NODES: CityNode[] = [
-  { id: "BASE",       label: "Emergency Base",      position: { x: -40, z: 0   } },
-  { id: "JA",         label: "Junction A",           position: { x: -20, z: 0   } },
-  { id: "JB",         label: "Junction B",           position: { x:   0, z: 0   } },
-  { id: "JC",         label: "Junction C",           position: { x:  20, z: 0   } },
-  { id: "HOSPITAL",   label: "Hospital",             position: { x:  40, z: 0   } },
-  // Alt-route nodes (north)
-  { id: "N1",         label: "North Gate",           position: { x: -20, z: -18 } },
-  { id: "N2",         label: "North Mid",            position: { x:   0, z: -18 } },
-  { id: "N3",         label: "North East",           position: { x:  20, z: -18 } },
-  // Alt-route nodes (south)
-  { id: "S1",         label: "South Gate",           position: { x: -20, z:  18 } },
-  { id: "S2",         label: "South Mid",            position: { x:   0, z:  18 } },
-  { id: "S3",         label: "South East",           position: { x:  20, z:  18 } },
-  // Extra connector nodes
-  { id: "N0",         label: "North West",           position: { x: -30, z: -10 } },
-  { id: "S0",         label: "South West",           position: { x: -30, z:  10 } },
-  { id: "N4",         label: "North Hospital",       position: { x:  32, z: -10 } },
-  { id: "S4",         label: "South Hospital",       position: { x:  32, z:  10 } },
+  { id: "BASE",     label: "Emergency Base", position: { x: -40, z: 0   } },
+  { id: "JA",       label: "Junction A",     position: { x: -20, z: 0   } },
+  { id: "JB",       label: "Junction B",     position: { x:   0, z: 0   } },
+  { id: "JC",       label: "Junction C",     position: { x:  20, z: 0   } },
+  { id: "HOSPITAL", label: "Hospital",       position: { x:  40, z: 0   } },
+  { id: "N0",       label: "North West",     position: { x: -30, z: -10 } },
+  { id: "N1",       label: "North Gate",     position: { x: -20, z: -18 } },
+  { id: "N2",       label: "North Mid",      position: { x:   0, z: -18 } },
+  { id: "N3",       label: "North East",     position: { x:  20, z: -18 } },
+  { id: "N4",       label: "North Hospital", position: { x:  32, z: -10 } },
+  { id: "S0",       label: "South West",     position: { x: -30, z:  10 } },
+  { id: "S1",       label: "South Gate",     position: { x: -20, z:  18 } },
+  { id: "S2",       label: "South Mid",      position: { x:   0, z:  18 } },
+  { id: "S3",       label: "South East",     position: { x:  20, z:  18 } },
+  { id: "S4",       label: "South Hospital", position: { x:  32, z:  10 } },
 ];
 
 export const CITY_EDGES: CityEdge[] = [
-  // Main east-west corridor (primary route)
-  { from: "BASE",   to: "JA",   baseCost: 3, isCongested: false, isBlocked: false },
-  { from: "JA",     to: "JB",   baseCost: 3, isCongested: false, isBlocked: false },
-  { from: "JB",     to: "JC",   baseCost: 3, isCongested: false, isBlocked: false },
-  { from: "JC",     to: "HOSPITAL", baseCost: 3, isCongested: false, isBlocked: false },
-
+  // Main E-W corridor
+  { from: "BASE", to: "JA",       baseCost: 3, isCongested: false, isBlocked: false },
+  { from: "JA",   to: "JB",       baseCost: 3, isCongested: false, isBlocked: false },
+  { from: "JB",   to: "JC",       baseCost: 3, isCongested: false, isBlocked: false },
+  { from: "JC",   to: "HOSPITAL", baseCost: 3, isCongested: false, isBlocked: false },
   // North corridor
-  { from: "BASE",   to: "N0",   baseCost: 3, isCongested: false, isBlocked: false },
-  { from: "N0",     to: "N1",   baseCost: 2, isCongested: false, isBlocked: false },
-  { from: "N1",     to: "N2",   baseCost: 3, isCongested: false, isBlocked: false },
-  { from: "N2",     to: "N3",   baseCost: 3, isCongested: false, isBlocked: false },
-  { from: "N3",     to: "N4",   baseCost: 2, isCongested: false, isBlocked: false },
-  { from: "N4",     to: "HOSPITAL", baseCost: 3, isCongested: false, isBlocked: false },
-
+  { from: "BASE", to: "N0", baseCost: 3, isCongested: false, isBlocked: false },
+  { from: "N0",   to: "N1", baseCost: 2, isCongested: false, isBlocked: false },
+  { from: "N1",   to: "N2", baseCost: 3, isCongested: false, isBlocked: false },
+  { from: "N2",   to: "N3", baseCost: 3, isCongested: false, isBlocked: false },
+  { from: "N3",   to: "N4", baseCost: 2, isCongested: false, isBlocked: false },
+  { from: "N4",   to: "HOSPITAL", baseCost: 3, isCongested: false, isBlocked: false },
   // South corridor
-  { from: "BASE",   to: "S0",   baseCost: 3, isCongested: false, isBlocked: false },
-  { from: "S0",     to: "S1",   baseCost: 2, isCongested: false, isBlocked: false },
-  { from: "S1",     to: "S2",   baseCost: 3, isCongested: false, isBlocked: false },
-  { from: "S2",     to: "S3",   baseCost: 3, isCongested: false, isBlocked: false },
-  { from: "S3",     to: "S4",   baseCost: 2, isCongested: false, isBlocked: false },
-  { from: "S4",     to: "HOSPITAL", baseCost: 3, isCongested: false, isBlocked: false },
-
-  // N-S connectors (vertical)
-  { from: "JA",     to: "N1",   baseCost: 4, isCongested: false, isBlocked: false },
-  { from: "JB",     to: "N2",   baseCost: 4, isCongested: false, isBlocked: false },
-  { from: "JC",     to: "N3",   baseCost: 4, isCongested: false, isBlocked: false },
-  { from: "JA",     to: "S1",   baseCost: 4, isCongested: false, isBlocked: false },
-  { from: "JB",     to: "S2",   baseCost: 4, isCongested: false, isBlocked: false },
-  { from: "JC",     to: "S3",   baseCost: 4, isCongested: false, isBlocked: false },
-
+  { from: "BASE", to: "S0", baseCost: 3, isCongested: false, isBlocked: false },
+  { from: "S0",   to: "S1", baseCost: 2, isCongested: false, isBlocked: false },
+  { from: "S1",   to: "S2", baseCost: 3, isCongested: false, isBlocked: false },
+  { from: "S2",   to: "S3", baseCost: 3, isCongested: false, isBlocked: false },
+  { from: "S3",   to: "S4", baseCost: 2, isCongested: false, isBlocked: false },
+  { from: "S4",   to: "HOSPITAL", baseCost: 3, isCongested: false, isBlocked: false },
+  // N-S connectors
+  { from: "JA", to: "N1", baseCost: 4, isCongested: false, isBlocked: false },
+  { from: "JB", to: "N2", baseCost: 4, isCongested: false, isBlocked: false },
+  { from: "JC", to: "N3", baseCost: 4, isCongested: false, isBlocked: false },
+  { from: "JA", to: "S1", baseCost: 4, isCongested: false, isBlocked: false },
+  { from: "JB", to: "S2", baseCost: 4, isCongested: false, isBlocked: false },
+  { from: "JC", to: "S3", baseCost: 4, isCongested: false, isBlocked: false },
   // Diagonal connectors
-  { from: "N0",     to: "JA",   baseCost: 3, isCongested: false, isBlocked: false },
-  { from: "S0",     to: "JA",   baseCost: 3, isCongested: false, isBlocked: false },
-  { from: "N3",     to: "JC",   baseCost: 3, isCongested: false, isBlocked: false },
-  { from: "S3",     to: "JC",   baseCost: 3, isCongested: false, isBlocked: false },
+  { from: "N0", to: "JA", baseCost: 3, isCongested: false, isBlocked: false },
+  { from: "S0", to: "JA", baseCost: 3, isCongested: false, isBlocked: false },
+  { from: "N3", to: "JC", baseCost: 3, isCongested: false, isBlocked: false },
+  { from: "S3", to: "JC", baseCost: 3, isCongested: false, isBlocked: false },
 ];
 
-// ── Build adjacency list ──────────────────────────────────────────────
+// ── Edge key utilities ────────────────────────────────────────────────
+
+export function edgeKey(a: string, b: string): string {
+  return a < b ? `${a}->${b}` : `${b}->${a}`;
+}
+
+export function edgesForNode(nodeId: string, graph: CityGraph): CityEdge[] {
+  return graph.edges.filter((e) => e.from === nodeId || e.to === nodeId);
+}
+
+// ── Build graph ───────────────────────────────────────────────────────
+
 export function buildGraph(): CityGraph {
   const nodes = new Map<string, CityNode>();
   for (const n of CITY_NODES) nodes.set(n.id, n);
-  const edges = CITY_EDGES.map(e => ({ ...e })); // clone
+  const edges = CITY_EDGES.map((e) => ({ ...e }));
   return { nodes, edges };
 }
 
-// ── Dijkstra shortest path ────────────────────────────────────────────
+// ── Dijkstra ──────────────────────────────────────────────────────────
+
 export interface PathResult {
   path: string[];
   totalCost: number;
 }
 
-export function dijkstra(graph: CityGraph, startId: string, endId: string): PathResult | null {
+export function dijkstra(
+  graph: CityGraph,
+  startId: string,
+  endId: string,
+): PathResult | null {
   const dist = new Map<string, number>();
   const prev = new Map<string, string | null>();
   const visited = new Set<string>();
@@ -113,7 +120,6 @@ export function dijkstra(graph: CityGraph, startId: string, endId: string): Path
   }
   dist.set(startId, 0);
 
-  // Build adjacency: bidirectional edges
   const adj = new Map<string, { to: string; cost: number }[]>();
   for (const [id] of graph.nodes) adj.set(id, []);
   for (const e of graph.edges) {
@@ -124,7 +130,6 @@ export function dijkstra(graph: CityGraph, startId: string, endId: string): Path
   }
 
   while (true) {
-    // Pick unvisited node with smallest dist
     let u: string | null = null;
     let minD = Infinity;
     for (const [id] of graph.nodes) {
@@ -147,143 +152,137 @@ export function dijkstra(graph: CityGraph, startId: string, endId: string): Path
 
   if (dist.get(endId) === Infinity) return null;
 
-  // Reconstruct path
   const path: string[] = [];
   let cur: string | null = endId;
   while (cur !== null) {
     path.unshift(cur);
     cur = prev.get(cur) ?? null;
   }
-
   return { path, totalCost: dist.get(endId)! };
 }
 
-// ── Predefined routes for the demo ────────────────────────────────────
-export const PRIMARY_ROUTE = ["BASE", "JA", "JB", "JC", "HOSPITAL"];
+// ── Accident locations (pre-defined scenarios) ────────────────────────
 
-export interface AltRoute {
+export interface AccidentScenario {
   id: string;
+  position: Vec2;
+  blockedEdges: [string, string][];
   label: string;
-  path: string[];
-  cost: number;
-  isRecommended: boolean;
 }
 
-export function calculateAltRoutes(graph: CityGraph): AltRoute[] {
-  const routes: AltRoute[] = [];
+export const ACCIDENT_SCENARIOS: AccidentScenario[] = [
+  {
+    id: "ACC_JB",
+    position: { x: 0, z: 0 },
+    blockedEdges: [
+      ["JA", "JB"],
+      ["JB", "JC"],
+    ],
+    label: "Accident at Junction B",
+  },
+  {
+    id: "ACC_JC",
+    position: { x: 20, z: 0 },
+    blockedEdges: [
+      ["JB", "JC"],
+      ["JC", "HOSPITAL"],
+    ],
+    label: "Accident at Junction C",
+  },
+  {
+    id: "ACC_N2",
+    position: { x: 0, z: -18 },
+    blockedEdges: [
+      ["N1", "N2"],
+      ["N2", "N3"],
+    ],
+    label: "Accident at North Mid",
+  },
+  {
+    id: "ACC_S1",
+    position: { x: -20, z: 18 },
+    blockedEdges: [
+      ["S0", "S1"],
+      ["S1", "S2"],
+    ],
+    label: "Accident at South Gate",
+  },
+];
 
-  // Route A: Go north — block all south connectors so the only path is via north nodes
-  const routeAGraph: CityGraph = {
-    nodes: graph.nodes,
-    edges: graph.edges.map(e => ({
-      ...e,
-      isBlocked:
-        e.isBlocked ||
-        e.from === "JA" && e.to === "JB" ||
-        e.from === "JB" && e.to === "JA" ||
-        e.from === "JB" && e.to === "JC" ||
-        e.from === "JC" && e.to === "JB" ||
-        e.from === "BASE" && e.to === "S0" ||
-        e.from === "S0" && e.to === "BASE" ||
-        e.from === "JA" && e.to === "S1" ||
-        e.from === "S1" && e.to === "JA" ||
-        e.from === "JB" && e.to === "S2" ||
-        e.from === "S2" && e.to === "JB" ||
-        e.from === "JC" && e.to === "S3" ||
-        e.from === "S3" && e.to === "JC",
-    })),
-  };
-  const routeAPath = dijkstra(routeAGraph, "BASE", "HOSPITAL");
-  if (routeAPath) {
-    routes.push({
-      id: "ROUTE_A",
-      label: "Route A",
-      path: routeAPath.path,
-      cost: routeAPath.totalCost,
-      isRecommended: false,
-    });
+// ── Find alternative routes ───────────────────────────────────────────
+// Returns up to `maxRoutes` distinct routes from startId to endId.
+// Uses repeated Dijkstra with edge exclusion to find diverse paths.
+
+export function findAlternativeRoutes(
+  graph: CityGraph,
+  startId: string,
+  endId: string,
+  maxRoutes: number = 4,
+): PathResult[] {
+  const routes: PathResult[] = [];
+  const usedEdgeSets: Set<string>[] = [];
+
+  // First route: straight Dijkstra
+  const first = dijkstra(graph, startId, endId);
+  if (!first) return routes;
+  routes.push(first);
+  usedEdgeSets.add(routeEdgeSet(first.path));
+
+  // Subsequent routes: block edges used by previous routes
+  for (let attempt = 1; attempt < maxRoutes * 3 && routes.length < maxRoutes; attempt++) {
+    const blockedGraph: CityGraph = {
+      nodes: graph.nodes,
+      edges: graph.edges.map((e) => {
+        // Block one more edge from each previous route to force diversity
+        const prevRoute = routes[routes.length - 1];
+        const blockIdx = attempt % Math.max(1, prevRoute.path.length - 1);
+        const blockFrom = prevRoute.path[blockIdx];
+        const blockTo = prevRoute.path[blockIdx + 1];
+        if (!blockFrom || !blockTo) return e;
+        const key = edgeKey(blockFrom, blockTo);
+        const eKey = edgeKey(e.from, e.to);
+        return { ...e, isBlocked: e.isBlocked || eKey === key };
+      }),
+    };
+
+    const result = dijkstra(blockedGraph, startId, endId);
+    if (!result) continue;
+
+    // Check this route is sufficiently different
+    const newSet = routeEdgeSet(result.path);
+    if (isTooSimilar(newSet, usedEdgeSets)) continue;
+
+    routes.push(result);
+    usedEdgeSets.add(newSet);
   }
 
-  // Route B: Go south — block all north connectors so the only path is via south nodes
-  const routeBGraph: CityGraph = {
-    nodes: graph.nodes,
-    edges: graph.edges.map(e => ({
-      ...e,
-      isBlocked:
-        e.isBlocked ||
-        e.from === "JA" && e.to === "JB" ||
-        e.from === "JB" && e.to === "JA" ||
-        e.from === "JB" && e.to === "JC" ||
-        e.from === "JC" && e.to === "JB" ||
-        e.from === "BASE" && e.to === "N0" ||
-        e.from === "N0" && e.to === "BASE" ||
-        e.from === "JA" && e.to === "N1" ||
-        e.from === "N1" && e.to === "JA" ||
-        e.from === "JB" && e.to === "N2" ||
-        e.from === "N2" && e.to === "JB" ||
-        e.from === "JC" && e.to === "N3" ||
-        e.from === "N3" && e.to === "JC",
-    })),
-  };
-  const routeBPath = dijkstra(routeBGraph, "BASE", "HOSPITAL");
-  if (routeBPath) {
-    routes.push({
-      id: "ROUTE_B",
-      label: "Route B",
-      path: routeBPath.path,
-      cost: routeBPath.totalCost,
-      isRecommended: false,
-    });
-  }
-
-  // Route C: Go south with congestion on BASE→S0 (slower due to traffic)
-  const routeCGraph: CityGraph = {
-    nodes: graph.nodes,
-    edges: graph.edges.map(e => ({
-      ...e,
-      isBlocked:
-        e.isBlocked ||
-        e.from === "JA" && e.to === "JB" ||
-        e.from === "JB" && e.to === "JA" ||
-        e.from === "JB" && e.to === "JC" ||
-        e.from === "JC" && e.to === "JB",
-      isCongested:
-        e.isCongested ||
-        (e.from === "BASE" && e.to === "S0") ||
-        (e.from === "S0" && e.to === "BASE"),
-    })),
-  };
-  const routeCPath = dijkstra(routeCGraph, "BASE", "HOSPITAL");
-  if (routeCPath) {
-    routes.push({
-      id: "ROUTE_C",
-      label: "Route C",
-      path: routeCPath.path,
-      cost: routeCPath.totalCost,
-      isRecommended: false,
-    });
-  }
-
-  // Mark fastest as recommended — shortest time wins
-  if (routes.length > 0) {
-    const fastest = routes.reduce((a, b) => (a.cost < b.cost ? a : b));
-    fastest.isRecommended = true;
-  }
-
+  // Sort by cost and mark best
+  routes.sort((a, b) => a.totalCost - b.totalCost);
   return routes;
 }
 
-// ── Traffic-aware re-evaluation ─────────────────────────────────────
-// Given the current graph state (congestion/blocked), recalculate the
-// best route from the ambulance's current node to the hospital.
-export function findBestRouteFrom(
-  graph: CityGraph,
-  fromId: string,
-): PathResult | null {
-  return dijkstra(graph, fromId, "HOSPITAL");
+function routeEdgeSet(path: string[]): Set<string> {
+  const s = new Set<string>();
+  for (let i = 0; i < path.length - 1; i++) s.add(edgeKey(path[i], path[i + 1]));
+  return s;
 }
 
-// Find which graph node the ambulance is closest to
+function isTooSimilar(candidate: Set<string>, existing: Set<string>[]): boolean {
+  for (const prev of existing) {
+    let overlap = 0;
+    for (const e of candidate) if (prev.has(e)) overlap++;
+    const ratio = overlap / Math.max(1, candidate.size);
+    if (ratio > 0.7) return true; // too similar
+  }
+  return false;
+}
+
+// ── Primary route ─────────────────────────────────────────────────────
+
+export const PRIMARY_ROUTE = ["BASE", "JA", "JB", "JC", "HOSPITAL"];
+
+// ── Find nearest graph node to a world position ───────────────────────
+
 export function findNearestNode(graph: CityGraph, pos: Vec2): string {
   let best = "BASE";
   let bestDist = Infinity;
@@ -299,15 +298,37 @@ export function findNearestNode(graph: CityGraph, pos: Vec2): string {
   return best;
 }
 
-// ── Utility: interpolate position along a path ────────────────────────
+// ── Get the graph node IDs along a route path ─────────────────────────
+
+export function getRouteEdges(path: string[]): string[] {
+  const edges: string[] = [];
+  for (let i = 0; i < path.length - 1; i++) {
+    edges.push(edgeKey(path[i], path[i + 1]));
+  }
+  return edges;
+}
+
+// ── Check if any edge on a route is blocked ───────────────────────────
+
+export function isRouteBlocked(path: string[], graph: CityGraph): boolean {
+  for (let i = 0; i < path.length - 1; i++) {
+    const key = edgeKey(path[i], path[i + 1]);
+    for (const e of graph.edges) {
+      if (edgeKey(e.from, e.to) === key && e.isBlocked) return true;
+    }
+  }
+  return false;
+}
+
+// ── Interpolate position along a path ─────────────────────────────────
+
 export function getPositionOnPath(
   graph: CityGraph,
   path: string[],
-  progress: number // 0..1
+  progress: number,
 ): { position: Vec2; angle: number } | null {
   if (path.length < 2) return null;
 
-  // Calculate total path length
   const segments: { from: Vec2; to: Vec2; length: number }[] = [];
   let totalLength = 0;
   for (let i = 0; i < path.length - 1; i++) {
@@ -334,8 +355,7 @@ export function getPositionOnPath(
     traveled += seg.length;
   }
 
-  // At the end
   const last = segments[segments.length - 1];
   const angle = Math.atan2(last.to.x - last.from.x, last.to.z - last.from.z);
-  return { position: { ...last.to, }, angle };
+  return { position: { ...last.to }, angle };
 }

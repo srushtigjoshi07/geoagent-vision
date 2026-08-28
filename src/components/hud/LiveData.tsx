@@ -4,7 +4,9 @@ export function LiveDataPanel() {
   const phase = useSimulationStore((s) => s.phase);
   const ambulance = useSimulationStore((s) => s.ambulance);
   const activeRouteId = useSimulationStore((s) => s.activeRouteId);
-  const accident = useSimulationStore((s) => s.accident);
+  const activeAccidents = useSimulationStore((s) => s.activeAccidents);
+  const blockedEdges = useSimulationStore((s) => s.allBlockedEdges);
+  const altRoutes = useSimulationStore((s) => s.altRoutes);
 
   if (phase === "idle") return null;
 
@@ -22,32 +24,31 @@ export function LiveDataPanel() {
     completed: "COMPLETE",
   };
 
-  const speed = phase === "detecting" || phase === "analyzing" || phase === "rerouting"
-    ? 0
-    : phase === "enroute_alt"
-      ? 50
-      : phase === "hospital"
-        ? 25
-    : phase === "completed"
+  const speed =
+    phase === "detecting" || phase === "analyzing" || phase === "rerouting"
       ? 0
-      : 60;
+      : phase === "enroute_alt"
+        ? 50
+        : phase === "hospital"
+          ? 25
+          : phase === "completed"
+            ? 0
+            : 60;
 
-  const etaMap: Record<string, string> = {
-    departing: "12 min",
-    enroute: "10 min",
-    accident: "16 min",
-    traffic: "16 min",
-    detecting: "16 min",
-    analyzing: "16 min",
-    rerouting: "—",
-    rerouted: "—",
-    enroute_alt: "8 min",
-    hospital: "0 min",
-    completed: "0 min",
-  };
+  // Dynamic ETA based on current route cost
+  const selectedRoute = altRoutes.find((r) => r.id === activeRouteId);
+  const routeCost = selectedRoute?.cost ?? 12;
+  const progress = ambulance.progress;
+  const remainingCost = Math.max(0, routeCost * (1 - progress));
+  const etaMin =
+    phase === "completed" || phase === "hospital" ? 0 : Math.ceil(remainingCost);
 
-  const trafficLevel = accident.active ? "HIGH" : "LOW";
-  const routeName = activeRouteId === "PRIMARY" ? "PRIMARY" : activeRouteId.replace("ROUTE_", "ALTERNATIVE ");
+  const trafficLevel = activeAccidents.length > 0 ? "HIGH" : "LOW";
+  const incidentCount = activeAccidents.length;
+  const routeName =
+    activeRouteId === "PRIMARY"
+      ? "PRIMARY"
+      : activeRouteId.replace("ROUTE_", "");
 
   const statusColor =
     phase === "completed"
@@ -55,11 +56,6 @@ export function LiveDataPanel() {
       : phase === "rerouting" || phase === "analyzing"
         ? "text-green-400"
         : "text-cyan-300";
-
-  const timeSaved =
-    activeRouteId !== "PRIMARY" && (phase === "enroute_alt" || phase === "hospital" || phase === "completed")
-      ? "6 min"
-      : null;
 
   return (
     <div className="pointer-events-none absolute bottom-4 left-4 z-20">
@@ -75,21 +71,30 @@ export function LiveDataPanel() {
         <div className="space-y-1.5 px-3 py-2 font-mono text-[10px]">
           <Row label="STATUS" value={statusMap[phase] || phase.toUpperCase()} color={statusColor} />
           <Row label="SPEED" value={`${speed} km/h`} color="text-stone-300" />
-          <Row label="ETA" value={etaMap[phase] || "—"} color="text-stone-300" />
+          <Row label="ETA" value={`${etaMin} min`} color="text-stone-300" />
           <Row
             label="TRAFFIC"
             value={trafficLevel}
             color={trafficLevel === "HIGH" ? "text-red-400" : "text-green-400"}
           />
           <Row label="ROUTE" value={routeName} color="text-stone-300" />
-          {timeSaved && (
+          {incidentCount > 0 && (
             <div className="border-t border-stone-800 pt-1.5">
-              <Row label="TIME SAVED" value={timeSaved} color="text-green-400 font-bold" />
+              <Row
+                label="INCIDENTS"
+                value={`${incidentCount} ACTIVE`}
+                color="text-red-400"
+              />
+              <Row
+                label="BLOCKED"
+                value={`${blockedEdges.size} SEGMENTS`}
+                color="text-amber-400"
+              />
             </div>
           )}
-          {accident.active && (
+          {phase === "completed" && (
             <div className="border-t border-stone-800 pt-1.5">
-              <Row label="INCIDENT" value="ACCIDENT" color="text-red-400" />
+              <Row label="RESULT" value="HOSPITAL REACHED" color="text-green-400" />
             </div>
           )}
         </div>
@@ -98,15 +103,7 @@ export function LiveDataPanel() {
   );
 }
 
-function Row({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: string;
-  color: string;
-}) {
+function Row({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div className="flex justify-between">
       <span className="text-stone-500">{label}</span>

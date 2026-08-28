@@ -67,6 +67,12 @@ export function AgentPanel() {
   const route = useSimulationStore((s) => s.routeAgent);
   const decision = useSimulationStore((s) => s.decisionAgent);
 
+  const altRoutes = useSimulationStore((s) => s.altRoutes);
+  const activeRouteId = useSimulationStore((s) => s.activeRouteId);
+  const selectedRoute = altRoutes.find((r) => r.id === activeRouteId);
+  const selectedLabel = selectedRoute?.label ?? "Optimal";
+  const selectedCost = selectedRoute?.cost ?? "—";
+
   const anyActive = trajectory !== "idle" || incident !== "idle" || route !== "idle" || decision !== "idle";
 
   if (!anyActive) return null;
@@ -109,9 +115,9 @@ export function AgentPanel() {
             status={route}
             detail={
               route === "active"
-                ? "3 routes evaluated"
+                ? `${altRoutes.length || 3} routes evaluated`
                 : route === "done"
-                  ? "Routes calculated"
+                  ? `${altRoutes.length} routes calculated`
                   : "Standby"
             }
           />
@@ -121,7 +127,7 @@ export function AgentPanel() {
             status={decision}
             detail={
               decision === "active"
-                ? "Route B selected"
+                ? `${selectedLabel} selected (${selectedCost} min)`
                 : decision === "done"
                   ? "Decision confirmed"
                   : "Standby"

@@ -4,12 +4,15 @@ import {
   dijkstra,
   getPositionOnPath,
   findNearestNode,
-  findBestRouteFrom,
+  findAlternativeRoutes,
+  edgeKey,
+  getRouteEdges,
   type CityGraph,
   type Vec2,
+  type CityEdge,
   PRIMARY_ROUTE,
-  calculateAltRoutes,
-  type AltRoute,
+  ACCIDENT_SCENARIOS,
+  type AccidentScenario,
 } from "./cityGraph";
 
 // ── Simulation phase ──────────────────────────────────────────────────
@@ -38,10 +41,9 @@ export interface AmbulanceState {
   flashingLights: boolean;
 }
 
-export interface AccidentInfo {
-  position: Vec2;
-  active: boolean;
-  detected: boolean;
+export interface ActiveAccident {
+  scenario: AccidentScenario;
+  time: number;
 }
 
 export interface RouteDisplay {
@@ -76,11 +78,13 @@ interface SimulationState {
   timeElapsed: number;
 
   ambulance: AmbulanceState;
-  accident: AccidentInfo;
+  accident: { position: Vec2; active: boolean; detected: boolean };
+  activeAccidents: ActiveAccident[];
 
   primaryRoute: string[];
   altRoutes: RouteDisplay[];
   activeRouteId: string;
+  allBlockedEdges: Set<string>;
 
   trajectoryAgent: AgentStatus;
   incidentAgent: AgentStatus;
@@ -92,11 +96,12 @@ interface SimulationState {
   timeline: TimelineStep[];
   graph: CityGraph;
 
-  // Traffic corridor: sampled world-space positions along the ambulance's
-  // active route. Civilian cars check proximity to these to yield.
   trafficCorridor: Vec2[];
-  // Whether the corridor is "active" (ambulance is moving)
   corridorActive: boolean;
+
+  // Dynamic rerouting control
+  nextAccidentIdx: number;
+  rerouteCooldown: number;
 
   startDemo: () => void;
   pause: () => void;
@@ -119,35 +124,36 @@ const INITIAL_AMBULANCE: AmbulanceState = {
 
 function createTimeline(): TimelineStep[] {
   return [
-    { id: "departed",   label: "DEPARTED",     active: false, done: false },
-    { id: "accident",   label: "ACCIDENT",     active: false, done: false },
-    { id: "detected",   label: "DETECTED",     active: false, done: false },
-    { id: "analyzed",   label: "ANALYZED",     active: false, done: false },
+    { id: "departed", label: "DEPARTED", active: false, done: false },
+    { id: "accident", label: "ACCIDENT", active: false, done: false },
+    { id: "detected", label: "DETECTED", active: false, done: false },
+    { id: "analyzed", label: "ANALYZED", active: false, done: false },
     { id: "route_selected", label: "ROUTE SELECTED", active: false, done: false },
-    { id: "rerouted",   label: "REROUTED",     active: false, done: false },
-    { id: "hospital",   label: "HOSPITAL",     active: false, done: false },
+    { id: "rerouted", label: "REROUTED", active: false, done: false },
+    { id: "hospital", label: "HOSPITAL", active: false, done: false },
   ];
 }
 
 function createEdgeSteps(): EdgeProcessingStep[] {
   return [
-    { label: "CAMERA FRAME",        active: false, done: false },
-    { label: "RASPBERRY PI",        active: false, done: false },
-    { label: "VISION PROCESSING",   active: false, done: false },
-    { label: "INCIDENT DETECTED",   active: false, done: false },
+    { label: "CAMERA FRAME", active: false, done: false },
+    { label: "RASPBERRY PI", active: false, done: false },
+    { label: "VISION PROCESSING", active: false, done: false },
+    { label: "INCIDENT DETECTED", active: false, done: false },
   ];
 }
 
+// Phase durations (seconds) — used for automatic phase advancement
 const PHASE_DURATIONS: Partial<Record<SimPhase, number>> = {
   departing: 2,
-  enroute: 6,
-  accident: 2,
-  traffic: 3,
-  detecting: 2.5,
-  analyzing: 2.5,
-  rerouting: 2.5,
-  rerouted: 1.5,
-  enroute_alt: 5,
+  enroute: 5.5,
+  accident: 1.5,
+  traffic: 2.5,
+  detecting: 2,
+  analyzing: 2,
+  rerouting: 2,
+  rerouted: 1.2,
+  enroute_alt: 6,
   hospital: 2,
 };
 
@@ -159,8 +165,23 @@ const PHASE_ORDER: SimPhase[] = [
 
 const AMBULANCE_SPEED = 0.12;
 
-function congestGraph(): CityGraph {
-  const graph = buildGraph();
+// ── Apply accident to graph (mutates edges) ───────────────────────────
+
+function applyAccidentToGraph(
+  graph: CityGraph,
+  scenario: AccidentScenario,
+): void {
+  for (const e of graph.edges) {
+    const k = edgeKey(e.from, e.to);
+    for (const [a, b] of scenario.blockedEdges) {
+      if (edgeKey(a, b) === k) {
+        e.isBlocked = true;
+      }
+    }
+  }
+}
+
+function addCongestionToGraph(graph: CityGraph): void {
   for (const e of graph.edges) {
     if (
       (e.from === "JB" && (e.to === "JC" || e.to === "JA")) ||
@@ -169,12 +190,18 @@ function congestGraph(): CityGraph {
       e.isCongested = true;
     }
   }
-  return graph;
+}
+
+function rebuildBlockedSet(graph: CityGraph): Set<string> {
+  const s = new Set<string>();
+  for (const e of graph.edges) {
+    if (e.isBlocked) s.add(edgeKey(e.from, e.to));
+  }
+  return s;
 }
 
 /**
- * Sample evenly-spaced world positions along a route path for the
- * traffic-corridor proximity check. ~2-unit spacing gives good coverage.
+ * Sample evenly-spaced world positions along a route for corridor checks.
  */
 function sampleRoutePositions(route: string[], graph: CityGraph): Vec2[] {
   const positions: Vec2[] = [];
@@ -190,11 +217,52 @@ function sampleRoutePositions(route: string[], graph: CityGraph): Vec2[] {
       positions.push({ x: a.x + dx * t, z: a.z + dz * t });
     }
   }
-  // Add the final endpoint
   const lastNode = graph.nodes.get(route[route.length - 1]);
   if (lastNode) positions.push({ ...lastNode.position });
   return positions;
 }
+
+/**
+ * Check if the ambulance's current route has a blocked edge ahead.
+ * Returns the blocked edge key if found, null otherwise.
+ */
+function findBlockedEdgeAhead(
+  path: string[],
+  progress: number,
+  graph: CityGraph,
+): string | null {
+  if (path.length < 2) return null;
+  const edges = getRouteEdges(path);
+  const totalEdges = edges.length;
+  const currentEdgeIdx = Math.floor(progress * totalEdges);
+  for (let i = currentEdgeIdx; i < totalEdges; i++) {
+    if (graph.edges.find((e) => edgeKey(e.from, e.to) === edges[i] && e.isBlocked)) {
+      return edges[i];
+    }
+  }
+  return null;
+}
+
+/**
+ * Build route displays from a list of PathResults.
+ */
+function buildRouteDisplays(
+  routes: { path: string[]; totalCost: number }[],
+  activeRouteId: string,
+): RouteDisplay[] {
+  return routes.map((r, i) => ({
+    id: i === 0 ? "ROUTE_OPTIMAL" : `ROUTE_ALT_${i}`,
+    label: i === 0 ? "Optimal" : `Route ${String.fromCharCode(64 + i)}`,
+    path: r.path,
+    cost: r.totalCost,
+    isRecommended: false,
+    visible: true,
+  }));
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Store
+// ═══════════════════════════════════════════════════════════════════════
 
 export const useSimulationStore = create<SimulationState>((set, get) => ({
   phase: "idle",
@@ -203,10 +271,12 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
   ambulance: { ...INITIAL_AMBULANCE, currentRoute: [...PRIMARY_ROUTE] },
   accident: { position: { x: 0, z: 0 }, active: false, detected: false },
+  activeAccidents: [],
 
   primaryRoute: [...PRIMARY_ROUTE],
   altRoutes: [],
   activeRouteId: "PRIMARY",
+  allBlockedEdges: new Set<string>(),
 
   trajectoryAgent: "idle",
   incidentAgent: "idle",
@@ -221,6 +291,10 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   trafficCorridor: [],
   corridorActive: false,
 
+  nextAccidentIdx: 0,
+  rerouteCooldown: 0,
+
+  // ── Start ─────────────────────────────────────────────────────────
   startDemo: () => {
     const graph = buildGraph();
     const corridor = sampleRoutePositions(PRIMARY_ROUTE, graph);
@@ -230,9 +304,11 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       timeElapsed: 0,
       ambulance: { ...INITIAL_AMBULANCE, currentRoute: [...PRIMARY_ROUTE] },
       accident: { position: { x: 0, z: 0 }, active: false, detected: false },
+      activeAccidents: [],
       primaryRoute: [...PRIMARY_ROUTE],
       altRoutes: [],
       activeRouteId: "PRIMARY",
+      allBlockedEdges: new Set(),
       trajectoryAgent: "active",
       incidentAgent: "idle",
       routeAgent: "idle",
@@ -243,6 +319,8 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       graph,
       trafficCorridor: corridor,
       corridorActive: true,
+      nextAccidentIdx: 0,
+      rerouteCooldown: 0,
     });
     setTimeout(() => {
       const s = get();
@@ -265,9 +343,11 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       timeElapsed: 0,
       ambulance: { ...INITIAL_AMBULANCE, currentRoute: [...PRIMARY_ROUTE] },
       accident: { position: { x: 0, z: 0 }, active: false, detected: false },
+      activeAccidents: [],
       primaryRoute: [...PRIMARY_ROUTE],
       altRoutes: [],
       activeRouteId: "PRIMARY",
+      allBlockedEdges: new Set(),
       trajectoryAgent: "idle",
       incidentAgent: "idle",
       routeAgent: "idle",
@@ -278,13 +358,14 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       graph: buildGraph(),
       trafficCorridor: [],
       corridorActive: false,
+      nextAccidentIdx: 0,
+      rerouteCooldown: 0,
     }),
 
   triggerAccident: () => {
     const state = get();
     if (state.phase === "idle" || state.phase === "completed") return;
     set({
-      phase: "accident",
       accident: { position: { x: 0, z: 0 }, active: true, detected: false },
       cameraState: { state: "ACCIDENT DETECTED" },
     });
@@ -294,8 +375,6 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     const s = get();
     if (!s.accident.active) return;
     set({
-      phase: "traffic",
-      graph: congestGraph(),
       cameraState: { state: "ROAD BLOCKED" },
     });
   },
@@ -303,11 +382,11 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   clearIncident: () => {
     set({
       accident: { position: { x: 0, z: 0 }, active: false, detected: false },
-      graph: buildGraph(),
       cameraState: { state: "NORMAL ROAD" },
     });
   },
 
+  // ── Main tick ─────────────────────────────────────────────────────
   tick: (dt: number) => {
     const state = get();
     if (state.isPaused || state.phase === "idle" || state.phase === "completed") return;
@@ -318,6 +397,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     let nextPhase: SimPhase = state.phase;
 
+    // ── Phase transitions (time-based) ──────────────────────────────
     if (duration && newTime > duration) {
       const idx = PHASE_ORDER.indexOf(state.phase);
       if (idx >= 0 && idx < PHASE_ORDER.length - 1) {
@@ -325,14 +405,26 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         updates.phase = nextPhase;
       }
 
-      // Phase-specific transitions
       switch (nextPhase) {
         case "enroute": {
           updates.cameraState = { state: "NORMAL ROAD" };
           break;
         }
         case "accident": {
-          updates.accident = { position: { x: 0, z: 0 }, active: true, detected: false };
+          // Apply first accident scenario
+          const graph = buildGraph();
+          const scenario = ACCIDENT_SCENARIOS[0]; // Junction B
+          applyAccidentToGraph(graph, scenario);
+          addCongestionToGraph(graph);
+          const accidents = [{ scenario, time: newTime }];
+          updates.graph = graph;
+          updates.activeAccidents = accidents;
+          updates.allBlockedEdges = rebuildBlockedSet(graph);
+          updates.accident = {
+            position: { ...scenario.position },
+            active: true,
+            detected: false,
+          };
           updates.cameraState = { state: "ACCIDENT DETECTED" };
           const tl = [...state.timeline];
           const ti = tl.findIndex((t) => t.id === "accident");
@@ -341,7 +433,6 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
           break;
         }
         case "traffic": {
-          updates.graph = congestGraph();
           updates.cameraState = { state: "ROAD BLOCKED" };
           break;
         }
@@ -364,49 +455,18 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
           break;
         }
         case "rerouting": {
-          const graph = congestGraph();
-          // Intelligent routing: find the best route from the ambulance's
-          // current position using traffic-aware Dijkstra
+          // Find multiple alternative routes from ambulance's current position
           const amb = updates.ambulance ?? state.ambulance;
+          const graph = updates.graph ?? state.graph;
           const nearestNode = findNearestNode(graph, amb.position);
-          const bestFromCurrent = findBestRouteFrom(graph, nearestNode);
 
-          const alts = calculateAltRoutes(graph);
-          const routeDisplays: RouteDisplay[] = alts.map((r) => ({
-            ...r,
-            visible: true,
-          }));
+          const routes = findAlternativeRoutes(graph, nearestNode, "HOSPITAL", 5);
+          const routeDisplays = buildRouteDisplays(routes, state.activeRouteId);
 
-          // If the best route from current position differs from all alts,
-          // add it as the primary recommended option
-          if (bestFromCurrent && bestFromCurrent.path.length >= 2) {
-            const bestCost = bestFromCurrent.totalCost;
-            const bestPathStr = bestFromCurrent.path.join(",");
-            // Check if any existing alt already covers this path
-            const alreadyCovered = routeDisplays.some(
-              (r) => r.path.join(",") === bestPathStr
-            );
-            if (!alreadyCovered) {
-              // Insert as the first route — it's the real best option
-              routeDisplays.unshift({
-                id: "ROUTE_OPTIMAL",
-                label: "Optimal",
-                path: bestFromCurrent.path,
-                cost: bestCost,
-                isRecommended: false, // will be set below
-                visible: true,
-              });
-            }
-          }
-
-          // Re-mark recommended — always pick the shortest-time route
-          for (const r of routeDisplays) r.isRecommended = false;
           if (routeDisplays.length > 0) {
-            const fastest = routeDisplays.reduce((a, b) => (a.cost < b.cost ? a : b));
-            fastest.isRecommended = true;
+            routeDisplays[0].isRecommended = true;
           }
 
-          updates.graph = graph;
           updates.altRoutes = routeDisplays;
           updates.routeAgent = "done";
           updates.decisionAgent = "active";
@@ -422,20 +482,17 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
           if (rec) {
             updates.activeRouteId = rec.id;
             const newRoute = [...rec.path];
-            // Prepend the ambulance's nearest node if it's not already first
+            // Prepend nearest node if not already first
             const amb2 = updates.ambulance ?? state.ambulance;
             const graph2 = updates.graph ?? state.graph;
             const nearest = findNearestNode(graph2, amb2.position);
-            if (newRoute[0] !== nearest) {
-              newRoute.unshift(nearest);
-            }
+            if (newRoute[0] !== nearest) newRoute.unshift(nearest);
             updates.ambulance = {
-              ...state.ambulance,
+              ...(updates.ambulance ?? state.ambulance),
               currentRoute: newRoute,
               progress: 0,
               speed: 50,
             };
-            // Rebuild traffic corridor for the new route
             updates.trafficCorridor = sampleRoutePositions(newRoute, graph2);
             updates.corridorActive = true;
           }
@@ -470,7 +527,71 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       }
     }
 
-    // Move ambulance
+    // ── Dynamic rerouting during enroute_alt ────────────────────────
+    // Check for blocked edges ahead and trigger mini-reroutes
+    if (nextPhase === "enroute_alt" || (updates.phase ?? state.phase) === "enroute_alt") {
+      const amb = { ...(updates.ambulance ?? state.ambulance) };
+      const graph = updates.graph ?? state.graph;
+      const cooldown = (updates.rerouteCooldown ?? state.rerouteCooldown) - dt;
+
+      if (cooldown <= 0) {
+        const blocked = findBlockedEdgeAhead(amb.currentRoute, amb.progress, graph);
+        if (blocked) {
+          // Blocked edge found ahead — reroute
+          const nearestNode = findNearestNode(graph, amb.position);
+          const routes = findAlternativeRoutes(graph, nearestNode, "HOSPITAL", 5);
+
+          if (routes.length > 0) {
+            const best = routes[0];
+            const newRoute = [nearestNode, ...best.path.slice(best.path.indexOf(nearestNode) + 1)];
+            if (newRoute.length >= 2) {
+              // Only reroute if meaningfully different from current route
+              const currentEdges = getRouteEdges(amb.currentRoute);
+              const newEdges = getRouteEdges(newRoute);
+              const overlap = currentEdges.filter((e) => newEdges.includes(e)).length;
+              const divergence = 1 - overlap / Math.max(1, currentEdges.length);
+
+              if (divergence > 0.3) {
+                // Apply new accident if we have more scenarios
+                const nextIdx = (updates.nextAccidentIdx ?? state.nextAccidentIdx);
+                if (nextIdx < ACCIDENT_SCENARIOS.length) {
+                  const scenario = ACCIDENT_SCENARIOS[nextIdx];
+                  applyAccidentToGraph(graph, scenario);
+                  const accidents = [...(updates.activeAccidents ?? state.activeAccidents), { scenario, time: newTime }];
+                  updates.graph = graph;
+                  updates.activeAccidents = accidents;
+                  updates.allBlockedEdges = rebuildBlockedSet(graph);
+                  updates.nextAccidentIdx = nextIdx + 1;
+                }
+
+                // Build displays for all routes found
+                const routeDisplays = buildRouteDisplays(routes, state.activeRouteId);
+                if (routeDisplays.length > 0) routeDisplays[0].isRecommended = true;
+                updates.altRoutes = routeDisplays;
+                updates.activeRouteId = routeDisplays[0]?.id ?? "ROUTE_OPTIMAL";
+
+                updates.ambulance = {
+                  ...amb,
+                  currentRoute: newRoute,
+                  progress: 0,
+                  speed: 50,
+                };
+                updates.trafficCorridor = sampleRoutePositions(newRoute, graph);
+                updates.corridorActive = true;
+                updates.rerouteCooldown = 1.5; // prevent rapid reroutes
+                updates.cameraState = { state: "NORMAL ROAD" };
+              }
+            }
+          }
+        } else {
+          updates.rerouteCooldown = 0.5; // check again in 0.5s
+        }
+      } else {
+        updates.rerouteCooldown = cooldown;
+      }
+    }
+
+    // ── Move ambulance ──────────────────────────────────────────────
     const amb = { ...(updates.ambulance ?? state.ambulance) };
     const cp = (updates.phase ?? state.phase) as SimPhase;
 
@@ -487,7 +608,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       let speedMult = 1;
       if (cp === "departing") speedMult = 0.6;
       if (cp === "hospital") speedMult = 0.4;
-      if (cp === "enroute" && state.accident.active) speedMult = 0.3;
+      if (cp === "enroute" && (updates.accident ?? state.accident).active) speedMult = 0.3;
 
       const progressInc = AMBULANCE_SPEED * speedMult * dt;
       amb.progress = Math.min(1, amb.progress + progressInc);
@@ -495,14 +616,13 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       const posResult = getPositionOnPath(
         updates.graph ?? state.graph,
         amb.currentRoute,
-        amb.progress
+        amb.progress,
       );
       if (posResult) {
         amb.position = posResult.position;
         amb.angle = posResult.angle;
       }
 
-      // Override speed for specific phases
       if (cp === "enroute_alt") amb.speed = 50;
       else if (cp === "rerouted") amb.speed = 55;
       else if (cp === "hospital") amb.speed = 25;
@@ -511,7 +631,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     updates.ambulance = amb;
 
-    // Edge processing animation
+    // ── Edge processing animation ───────────────────────────────────
     if (cp === "detecting" || cp === "analyzing") {
       const steps = [...(updates.edgeSteps ?? state.edgeSteps)];
       const t = updates.timeElapsed ?? newTime;
