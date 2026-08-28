@@ -7,6 +7,8 @@ export function LiveDataPanel() {
   const activeAccidents = useSimulationStore((s) => s.activeAccidents);
   const blockedEdges = useSimulationStore((s) => s.allBlockedEdges);
   const altRoutes = useSimulationStore((s) => s.altRoutes);
+  const ambAccident = useSimulationStore((s) => s.ambulanceAccident);
+  const rerouteCount = useSimulationStore((s) => s.rerouteCount);
 
   if (phase === "idle") return null;
 
@@ -78,6 +80,11 @@ export function LiveDataPanel() {
             color={trafficLevel === "HIGH" ? "text-red-400" : "text-green-400"}
           />
           <Row label="ROUTE" value={routeName} color="text-stone-300" />
+          {ambAccident && (
+            <div className="border-t border-stone-800 pt-1.5">
+              <Row label="AMB STATUS" value="ACCIDENT — REROUTING" color="text-orange-400 font-bold" />
+            </div>
+          )}
           {incidentCount > 0 && (
             <div className="border-t border-stone-800 pt-1.5">
               <Row
@@ -89,6 +96,15 @@ export function LiveDataPanel() {
                 label="BLOCKED"
                 value={`${blockedEdges.size} SEGMENTS`}
                 color="text-amber-400"
+              />
+            </div>
+          )}
+          {rerouteCount > 0 && (
+            <div className="border-t border-stone-800 pt-1.5">
+              <Row
+                label="REROUTES"
+                value={`${rerouteCount}`}
+                color="text-cyan-400"
               />
             </div>
           )}

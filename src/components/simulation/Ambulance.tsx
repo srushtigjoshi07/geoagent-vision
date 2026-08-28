@@ -6,9 +6,11 @@ import { useSimulationStore } from "@/lib/simulationStore";
 // 3D Ambulance model (AMB-01) — white body with red cross, flashing lights
 export function Ambulance() {
   const { position, angle, flashingLights, speed } = useSimulationStore((s) => s.ambulance);
+  const ambAccident = useSimulationStore((s) => s.ambulanceAccident);
   const groupRef = useRef<THREE.Group>(null);
   const lightRef1 = useRef<THREE.Mesh>(null);
   const lightRef2 = useRef<THREE.Mesh>(null);
+  const indicatorRef = useRef<THREE.Mesh>(null);
   const timeRef = useRef(0);
 
   useFrame((_, delta) => {
@@ -156,6 +158,33 @@ export function Ambulance() {
           <pointLight position={[0, 1.5, 0]} color="#dd3333" intensity={4} distance={12} decay={2} />
           <pointLight position={[0, 1.5, 0]} color="#3344dd" intensity={2} distance={8} decay={2} />
         </>
+      )}
+      {/* Ambulance accident indicator — pulsing orange ring above vehicle */}
+      {ambAccident && (
+        <group position={[0, 2.5, 0]}>
+          <mesh ref={indicatorRef} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[0.8, 1.3, 24]} />
+            <meshStandardMaterial
+              color="#ff6600"
+              emissive="#ff4400"
+              emissiveIntensity={2}
+              transparent
+              opacity={0.7}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+          <mesh position={[0, 0, 0]}
+            rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[0.15, 1.2]} />
+            <meshStandardMaterial color="#ff4400" emissive="#ff2200" emissiveIntensity={2} side={THREE.DoubleSide} />
+          </mesh>
+          <mesh position={[0, 0, 0]}
+            rotation={[-Math.PI / 2, 0, Math.PI / 2]}>
+            <planeGeometry args={[0.15, 1.2]} />
+            <meshStandardMaterial color="#ff4400" emissive="#ff2200" emissiveIntensity={2} side={THREE.DoubleSide} />
+          </mesh>
+          <pointLight color="#ff4400" intensity={5} distance={10} decay={2} />
+        </group>
       )}
     </group>
   );

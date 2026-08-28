@@ -46,6 +46,12 @@ export interface ActiveAccident {
   time: number;
 }
 
+export interface AmbulanceAccident {
+  position: Vec2;
+  time: number;
+  recoverRoute: string[] | null;
+}
+
 export interface RouteDisplay {
   id: string;
   label: string;
@@ -80,6 +86,7 @@ interface SimulationState {
   ambulance: AmbulanceState;
   accident: { position: Vec2; active: boolean; detected: boolean };
   activeAccidents: ActiveAccident[];
+  ambulanceAccident: AmbulanceAccident | null;
 
   primaryRoute: string[];
   altRoutes: RouteDisplay[];
@@ -102,6 +109,9 @@ interface SimulationState {
   // Dynamic rerouting control
   nextAccidentIdx: number;
   rerouteCooldown: number;
+  ambAccidentTimer: number; // countdown for ambulance accident stop
+  maxReroutes: number; // prevent infinite loops
+  rerouteCount: number;
 
   startDemo: () => void;
   pause: () => void;
@@ -200,6 +210,52 @@ function rebuildBlockedSet(graph: CityGraph): Set<string> {
   return s;
 }
 
+// Distance between two Vec2 points
+function distBetween(a: Vec2, b: Vec2): number {
+  const dx = a.x - b.x;
+  const dz = a.z - b.z;
+  return Math.sqrt(dx * dx + dz * dz);
+}
+
+// Check if the ambulance is approaching an accident (within PROXIMITY_THRESHOLD)
+// and hasn't already been detected as passed.
+const PROXIMITY_THRESHOLD = 6; // units — how close before ambulance "hits" accident
+
+function isAmbulanceNearAccident(
+  ambPos: Vec2,
+  ambRoute: string[],
+  ambProgress: number,
+  accidents: ActiveAccident[],
+  graph: CityGraph,
+): boolean {
+  if (accidents.length === 0) return false;
+  const totalEdges = ambRoute.length - 1;
+  const currentEdgeIdx = Math.floor(ambProgress * totalEdges);
+  // Check current edge and next 2 edges ahead
+  for (let i = currentEdgeIdx; i < Math.min(currentEdgeIdx + 3, totalEdges); i++) {
+    const a = graph.nodes.get(ambRoute[i])?.position;
+    const b = graph.nodes.get(ambRoute[i + 1])?.position;
+    if (!a || !b) continue;
+    for (const acc of accidents) {
+      // Check distance from accident position to the road segment
+      const segDx = b.x - a.x;
+      const segDz = b.z - a.z;
+      const segLen = Math.sqrt(segDx * segDx + segDz * segDz);
+      if (segLen === 0) continue;
+      // Project accident onto segment, clamp to [0,1]
+      const t = Math.max(0, Math.min(1, ((acc.scenario.position.x - a.x) * segDx + (acc.scenario.position.z - a.z) * segDz) / (segLen * segLen)));
+      const closestX = a.x + t * segDx;
+      const closestZ = a.z + t * segDz;
+      const dist = distBetween(acc.scenario.position, { x: closestX, z: closestZ });
+      if (dist < PROXIMITY_THRESHOLD) {
+        // Also check the ambulance hasn't already passed (progress beyond the segment)
+        if (ambProgress * totalEdges < i + 0.9) return true;
+      }
+    }
+  }
+  return false;
+}
+
 /**
  * Sample evenly-spaced world positions along a route for corridor checks.
  */
@@ -293,6 +349,10 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
   nextAccidentIdx: 0,
   rerouteCooldown: 0,
+  ambAccidentTimer: 0,
+  maxReroutes: 5,
+  rerouteCount: 0,
+  ambulanceAccident: null,
 
   // ── Start ─────────────────────────────────────────────────────────
   startDemo: () => {
@@ -321,6 +381,10 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       corridorActive: true,
       nextAccidentIdx: 0,
       rerouteCooldown: 0,
+      ambAccidentTimer: 0,
+      maxReroutes: 5,
+      rerouteCount: 0,
+      ambulanceAccident: null,
     });
     setTimeout(() => {
       const s = get();
@@ -360,6 +424,10 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       corridorActive: false,
       nextAccidentIdx: 0,
       rerouteCooldown: 0,
+      ambAccidentTimer: 0,
+      maxReroutes: 5,
+      rerouteCount: 0,
+      ambulanceAccident: null,
     }),
 
   triggerAccident: () => {
@@ -591,13 +659,115 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       }
     }
 
+    // ── Ambulance accident detection ────────────────────────────────
+    const cp = (updates.phase ?? state.phase) as SimPhase;
+    const ambForDetect = { ...(updates.ambulance ?? state.ambulance) };
+    const accForDetect = updates.activeAccidents ?? state.activeAccidents;
+    const ambAccTimer = (updates.ambulanceAccident ?? state.ambulanceAccident)?.time
+      ? (updates.ambulanceAccident ?? state.ambulanceAccident)!.time - dt
+      : 0;
+
+    // If ambulance is in accident recovery, handle the timer
+    if ((updates.ambulanceAccident ?? state.ambulanceAccident) && ambAccTimer > 0) {
+      updates.ambulanceAccident = {
+        ...(updates.ambulanceAccident ?? state.ambulanceAccident)!,
+        time: ambAccTimer,
+      };
+      // Keep ambulance stopped during recovery
+      updates.ambulance = {
+        ...(updates.ambulance ?? state.ambulance),
+        speed: 0,
+      };
+    } else if (
+      (updates.ambulanceAccident ?? state.ambulanceAccident) &&
+      (updates.ambulanceAccident ?? state.ambulanceAccident)!.time <= 0
+    ) {
+      // Recovery timer done — apply the recover route
+      const ambAcc = (updates.ambulanceAccident ?? state.ambulanceAccident)!;
+      if (ambAcc.recoverRoute && ambAcc.recoverRoute.length >= 2) {
+        const newRoute = ambAcc.recoverRoute;
+        const currentEdges = getRouteEdges(ambForDetect.currentRoute);
+        const newEdges = getRouteEdges(newRoute);
+        const overlap = currentEdges.filter((e) => newEdges.includes(e)).length;
+        const divergence = 1 - overlap / Math.max(1, currentEdges.length);
+        if (divergence > 0.2) {
+          updates.ambulance = {
+            ...(updates.ambulance ?? state.ambulance),
+            currentRoute: newRoute,
+            progress: 0,
+            speed: 50,
+          };
+          updates.trafficCorridor = sampleRoutePositions(newRoute, updates.graph ?? state.graph);
+          updates.corridorActive = true;
+        }
+      }
+      updates.ambulanceAccident = null;
+      updates.cameraState = { state: "NORMAL ROAD" };
+      // Build route displays so HUD shows alternatives
+      const nearestNode = findNearestNode(updates.graph ?? state.graph, ambForDetect.position);
+      const routes = findAlternativeRoutes(updates.graph ?? state.graph, nearestNode, "HOSPITAL", 5);
+      const routeDisplays = buildRouteDisplays(routes, state.activeRouteId);
+      if (routeDisplays.length > 0) routeDisplays[0].isRecommended = true;
+      updates.altRoutes = routeDisplays;
+    } else if (
+      cp === "enroute" || cp === "enroute_alt"
+    ) {
+      // Check if ambulance is approaching an accident
+      const graph = updates.graph ?? state.graph;
+      const nearAccident = isAmbulanceNearAccident(
+        ambForDetect.position,
+        ambForDetect.currentRoute,
+        ambForDetect.progress,
+        accForDetect,
+        graph,
+      );
+
+      if (nearAccident) {
+        // AMBULANCE ACCIDENT — stop and reroute
+        const nearestNode = findNearestNode(graph, ambForDetect.position);
+        const routes = findAlternativeRoutes(graph, nearestNode, "HOSPITAL", 5);
+
+        // Pick the best route that isn't the current one
+        let bestRoute: string[] | null = null;
+        for (const r of routes) {
+          const newEdges = getRouteEdges(r.path);
+          const currentEdges = getRouteEdges(ambForDetect.currentRoute);
+          const overlap = currentEdges.filter((e) => newEdges.includes(e)).length;
+          const divergence = 1 - overlap / Math.max(1, currentEdges.length);
+          if (divergence > 0.2) {
+            bestRoute = [nearestNode, ...r.path.slice(r.path.indexOf(nearestNode) + 1)];
+            break;
+          }
+        }
+        if (!bestRoute && routes.length > 0) {
+          bestRoute = [nearestNode, ...routes[0].path.slice(routes[0].path.indexOf(nearestNode) + 1)];
+        }
+
+        updates.ambulanceAccident = {
+          position: { ...ambForDetect.position },
+          time: 2.0, // 2 second stop
+          recoverRoute: bestRoute,
+        };
+        updates.ambulance = {
+          ...(updates.ambulance ?? state.ambulance),
+          speed: 0,
+        };
+        updates.cameraState = { state: "ACCIDENT DETECTED" };
+        updates.rerouteCount = (updates.rerouteCount ?? state.rerouteCount) + 1;
+        // Build displays so HUD shows alternatives
+        const routeDisplays = buildRouteDisplays(routes, state.activeRouteId);
+        if (routeDisplays.length > 0) routeDisplays[0].isRecommended = true;
+        updates.altRoutes = routeDisplays;
+      }
+    }
+
     // ── Move ambulance ──────────────────────────────────────────────
     const amb = { ...(updates.ambulance ?? state.ambulance) };
-    const cp = (updates.phase ?? state.phase) as SimPhase;
 
     const canMove =
       amb.speed > 0 &&
       amb.progress < 1 &&
+      !(updates.ambulanceAccident ?? state.ambulanceAccident) &&
       (cp === "departing" ||
         cp === "enroute" ||
         cp === "rerouted" ||
