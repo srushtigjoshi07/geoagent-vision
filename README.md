@@ -17,7 +17,7 @@ All relevant files live in the 'src' directory.
 
 Use bun for the package manager.
 
-**WEBSITE**
+**WEBSITE**: 
 https://geovision.freebuff.app/
 
 ## Setup
