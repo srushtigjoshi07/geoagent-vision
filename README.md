@@ -17,6 +17,9 @@ All relevant files live in the 'src' directory.
 
 Use bun for the package manager.
 
+**WEBSITE**
+https://geovision.freebuff.app/
+
 ## Setup
 
 This project is set up already and running on a cloud environment, as well as a convex development in the sandbox.
